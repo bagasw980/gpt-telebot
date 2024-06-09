@@ -4,3 +4,4 @@ dist
 public/image/*
 error.log
 .vercel
+build
