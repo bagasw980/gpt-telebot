@@ -1,0 +1,6 @@
+node_modules
+.env
+dist
+public/image/*
+error.log
+.vercel
