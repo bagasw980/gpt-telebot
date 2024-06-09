@@ -1,18 +1,40 @@
+import express from "express";
 import TelegramBot, { Message } from "node-telegram-bot-api";
 import axios from "axios";
 import * as https from "https";
 require("dotenv").config();
 
-// Replace the value below with the Telegram token you receive from @BotFather
-const token: string = process.env.TELEGRAM_TOKEN ?? '';
+// Ensure environment variables are set
+const token: string | undefined = process.env.TELEGRAM_TOKEN;
+const openaiApiKey: string | undefined = process.env.OPENAI_API_KEY;
+
+if (!token) {
+  throw new Error("TELEGRAM_TOKEN environment variable not set");
+}
+
+if (!openaiApiKey) {
+  throw new Error("OPENAI_API_KEY environment variable not set");
+}
+
+// Set up the Express server
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.get("/", (req, res) => {
+  res.send("Hello, this is your HTTP server running!");
+});
+
+// Start the Express server
+app.listen(port, () => {
+  console.log(`HTTP server running on port ${port}`);
+});
 
 // Create a bot that uses 'polling' to fetch new updates
 const bot: TelegramBot = new TelegramBot(token, { polling: true });
 
-// Create an axios instance with agent options
 const axiosInstance = axios.create({
   httpsAgent: new https.Agent({
-    rejectUnauthorized: false, // Example: Disable SSL verification
+    rejectUnauthorized: false, // Example: Disable SSL verification, customize as needed
   }),
 });
 
@@ -30,13 +52,13 @@ const chatReq = async (message: Message) => {
       {
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Authorization": `Bearer ${openaiApiKey}`,
         },
       }
     );
     return response.data.choices[0].message.content;
   } catch (err) {
-    console.error(err);
+    console.error('Error in chatReq:', err);
     return 'Error occurred while processing your request';
   }
 };
@@ -46,19 +68,37 @@ bot.onText(/\/echo (.+)/, (msg: Message, match: RegExpExecArray | null) => {
   if (match === null) return;
 
   const chatId: number = msg.chat.id;
-  const resp: string = match[1]; // the captured "whatever"
+  const resp: string = match[1];
 
-  // send back the matched "whatever" to the chat
-  bot.sendMessage(chatId, resp);
+  bot.sendMessage(chatId, resp).catch(err => {
+    console.error('Error sending echo message:', err);
+  });
 });
 
 // Listen for any kind of message. There are different kinds of messages.
 bot.on("message", async (msg: Message) => {
   const chatId: number = msg.chat.id;
 
-  // Call chatReq function and await its response
-  const response = await chatReq(msg);
+  try {
+    const response = await chatReq(msg);
+    bot.sendMessage(chatId, response).catch(err => {
+      console.error('Error sending response message:', err);
+    });
+  } catch (err) {
+    console.error('Error processing message:', err);
+    bot.sendMessage(chatId, 'An error occurred while processing your message.').catch(err => {
+      console.error('Error sending error message:', err);
+    });
+  }
+});
 
-  // Send the response back to the chat
-  bot.sendMessage(chatId, response);
+// Listen for polling errors and log them
+bot.on("polling_error", (error) => {
+  const pollingError = error;
+  console.error('Polling error:', pollingError.message);
+});
+
+bot.on("error", (error) => {
+  const botError = error as { code: string, message: string };
+  console.error('Bot error:', botError.code, botError.message);
 });
