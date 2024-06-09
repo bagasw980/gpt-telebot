@@ -22,6 +22,7 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "axios": "^1.7.2",
     "dotenv": "^16.4.5",
     "node-telegram-bot-api": "^0.66.0",
     "openai": "^4.49.1"
@@ -30,5 +31,5 @@
     "ts.check",
     "build",
     "add-build"
-]
+  ]
 }

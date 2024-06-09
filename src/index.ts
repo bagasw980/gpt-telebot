@@ -1,28 +1,42 @@
 import TelegramBot, { Message } from "node-telegram-bot-api";
-const OpenAI = require("openai");
+import axios from "axios";
+import * as https from "https";
 require("dotenv").config();
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// replace the value below with the Telegram token you receive from @BotFather
-const token: string = process.env.TELEGRAM_TOKEN ?? ''; // it's better to use environment variables
+// Replace the value below with the Telegram token you receive from @BotFather
+const token: string = process.env.TELEGRAM_TOKEN ?? '';
 
 // Create a bot that uses 'polling' to fetch new updates
 const bot: TelegramBot = new TelegramBot(token, { polling: true });
 
+// Create an axios instance with agent options
+const axiosInstance = axios.create({
+  httpsAgent: new https.Agent({
+    rejectUnauthorized: false, // Example: Disable SSL verification
+  }),
+});
+
 // Function to handle OpenAI chat completions
 const chatReq = async (message: Message) => {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: message.text }],
-      temperature: 0,
-      max_tokens: 1000,
-    });
-    return response.choices[0].message.content;
+    const response = await axiosInstance.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: message.text }],
+        temperature: 0,
+        max_tokens: 1000,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+      }
+    );
+    return response.data.choices[0].message.content;
   } catch (err) {
+    console.error(err);
     return 'Error occurred while processing your request';
   }
 };
